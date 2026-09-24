@@ -11,9 +11,6 @@ Relay control: hardware-first via app/hardware_client.py, then MongoDB
 
 Run locally:
     uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-
-Deployed on Vercel via backend/api/index.py, which just imports `app` from
-here - see that file and the root vercel.json.
 """
 
 import os
@@ -47,10 +44,32 @@ app = FastAPI(
     version="2.0.0",
 )
 
-FRONTEND_ORIGIN = os.environ.get("FRONTEND_ORIGIN", "*")
+# ---------------------------------------------------------------------------
+# Dynamic CORS Configuration
+# Accepts origins configured in FRONTEND_ORIGIN environment variable while
+# guaranteeing localhost and Vercel domains are explicitly allowed.
+# ---------------------------------------------------------------------------
+raw_origins = os.environ.get("FRONTEND_ORIGIN", "*")
+
+if raw_origins == "*":
+    allowed_origins = ["*"]
+else:
+    # Parse comma-separated origins from environment variable
+    allowed_origins = [origin.strip() for origin in raw_origins.split(",") if origin.strip()]
+    
+    # Always ensure local dev servers and production frontend are allowed
+    default_dev_origins = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+    ]
+    for dev_origin in default_dev_origins:
+        if dev_origin not in allowed_origins:
+            allowed_origins.append(dev_origin)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_ORIGIN] if FRONTEND_ORIGIN != "*" else ["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
