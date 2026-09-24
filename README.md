@@ -346,3 +346,4 @@ all exactly as before, now backed by MongoDB and live weather, plus:
   function signature and everything calling it stays the same.
 - CORS defaults to `*` for ease of setup; tighten `FRONTEND_ORIGIN` once
   your frontend URL is stable.
+# Smart-Energy-Monitoring
