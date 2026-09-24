@@ -11,18 +11,20 @@ the Mongo client is created once per warm container and reused across
 requests via a module-level cache, instead of reconnecting every call.
 
 Environment variables:
-    MONGODB_URI      - full connection string, e.g.
-                        mongodb+srv://user:pass@cluster.mongodb.net
-    MONGODB_DB_NAME  - database name (default: "energy_monitoring")
+    MONGODB_URI / MONGO_URI - full connection string, e.g.
+                              mongodb+srv://user:pass@cluster.mongodb.net
+    MONGODB_DB_NAME        - database name (default: "energy_monitoring")
 """
 
 import os
+import certifi
 from datetime import datetime, timezone
 
 from pymongo import MongoClient, ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
-MONGODB_URI = os.environ.get("MONGODB_URI", "")
+# Checks MONGODB_URI first, falls back to MONGO_URI if set on Render/Vercel
+MONGODB_URI = os.environ.get("MONGODB_URI") or os.environ.get("MONGO_URI", "")
 MONGODB_DB_NAME = os.environ.get("MONGODB_DB_NAME", "energy_monitoring")
 NODES_COLLECTION = "nodes"
 
@@ -33,15 +35,16 @@ def get_client() -> MongoClient:
     if _client_cache["client"] is None:
         if not MONGODB_URI:
             raise RuntimeError(
-                "MONGODB_URI is not set. Add it to your environment (.env locally, "
-                "or Vercel project Environment Variables) with your MongoDB Atlas "
-                "connection string."
+                "MONGODB_URI (or MONGO_URI) is not set. Add it to your environment "
+                "(.env locally, or Render/Vercel Environment Variables) with your "
+                "MongoDB Atlas connection string."
             )
-        # Small pool + short timeouts: sensible defaults for a serverless function.
+        # Pass tlsCAFile=certifi.where() to fix Linux/Render SSL handshake failures
         _client_cache["client"] = MongoClient(
             MONGODB_URI,
             serverSelectionTimeoutMS=8000,
             maxPoolSize=10,
+            tlsCAFile=certifi.where()
         )
     return _client_cache["client"]
 
